@@ -2,10 +2,10 @@ const crypto = require('node:crypto');
 const documentRepository = require('../repositories/documentRepository');
 const localFileRepository = require('../repositories/localFileRepository');
 const DocumentError = require('./documentErrors');
+const documentPresenter = require('./documentPresenter');
 
-function toPublicDocument(document) {
-  const { storageName, ...publicDocument } = document;
-  return publicDocument;
+function documentNotFound() {
+  return new DocumentError('DOCUMENT_NOT_FOUND', 'Documento não encontrado.');
 }
 
 async function createDocument(file, owner) {
@@ -24,7 +24,7 @@ async function createDocument(file, owner) {
   };
 
   try {
-    return toPublicDocument(documentRepository.create(document));
+    return documentPresenter.toPublicDocument(documentRepository.create(document));
   } catch (error) {
     await localFileRepository.remove(file.filename).catch(() => {});
     throw error;
@@ -32,7 +32,7 @@ async function createDocument(file, owner) {
 }
 
 function listDocuments(owner) {
-  return documentRepository.findByOwner(owner).map(toPublicDocument);
+  return documentRepository.findByOwner(owner).map(documentPresenter.toPublicDocument);
 }
 
 async function getDocumentForDownload(id, owner) {
@@ -42,15 +42,15 @@ async function getDocumentForDownload(id, owner) {
 
   const document = documentRepository.findById(id);
   if (!document || document.owner !== owner) {
-    throw new DocumentError('DOCUMENT_NOT_FOUND', 'Documento não encontrado.');
+    throw documentNotFound();
   }
 
   if (!(await localFileRepository.exists(document.storageName))) {
-    throw new DocumentError('DOCUMENT_NOT_FOUND', 'Documento não encontrado.');
+    throw documentNotFound();
   }
 
   return {
-    document: toPublicDocument(document),
+    document: documentPresenter.toPublicDocument(document),
     filePath: localFileRepository.getPath(document.storageName),
   };
 }
